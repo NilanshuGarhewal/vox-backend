@@ -57,6 +57,8 @@ def get_audio():
         "skip_download": True,
         "forceurl": True,
         "extract_flat": True,
+        "noplaylist": True,
+        "cookiefile": "cookies.txt",
     }
 
     with YoutubeDL(ydl_opts) as ydl:
