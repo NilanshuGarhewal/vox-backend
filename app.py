@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from ytmusicapi import YTMusic
 from flask_cors import CORS, cross_origin
 from yt_dlp import YoutubeDL
+import os
 import random
 
 app = Flask(__name__)
@@ -366,4 +367,8 @@ def search_artists():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=3001)
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=True,
+    )
