@@ -98,7 +98,7 @@ def get_similar_songs():
 # 🆕 New releases (mock example)
 @app.route("/newReleases")
 def new_releases():
-    search_results = ytmusic.get_chart("IN")["new_releases"]
+    search_results = ytmusic.get_charts("IN")["new_releases"]
     songs = []
 
     for item in search_results:
@@ -133,7 +133,7 @@ def random_songs():
 # 🌎 Trending (India)
 @app.route("/trending")
 def trending():
-    charts = ytmusic.get_chart("IN")
+    charts = ytmusic.get_charts("IN")
     trending_songs = charts["songs"]
     songs = []
 
