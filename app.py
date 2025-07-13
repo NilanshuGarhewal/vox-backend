@@ -1,359 +1,154 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from ytmusicapi import YTMusic
-from flask_cors import CORS, cross_origin
 from yt_dlp import YoutubeDL
 import os
 import random
 
+# Initialize Flask app
 app = Flask(__name__)
+
+# ✅ Enable CORS globally
 CORS(app)
 
+# Initialize YTMusic API
 ytmusic = YTMusic()
 
-
-@app.route("/searchSongs", methods=["GET"])
-def search_songs():
+# 🔍 Search route
+@app.route("/search")
+def search():
     query = request.args.get("query")
     if not query:
-        return jsonify([])
+        return jsonify({"error": "Missing 'query' parameter"}), 400
 
-    results = ytmusic.search(query, filter="songs")[:6]
+    search_results = ytmusic.search(query)
+    songs = []
 
-    songs = [
-        {
-            "title": item.get("title", "Unknown Title"),
-            "artist": ", ".join([a.get("name", "") for a in item.get("artists", [])]),
-            "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-            "url": f"https://music.youtube.com/watch?v={item.get('videoId', '')}",
-            "album": item.get("album", {}).get("name", "Unknown Album"),
-            "views": item.get("views", "0"),
-            "id": item.get("videoId", ""),
+    for item in search_results:
+        if item["resultType"] != "song":
+            continue
+
+        song = {
+            "title": item["title"],
+            "artist": ", ".join([a["name"] for a in item["artists"]]),
+            "thumbnail": item["thumbnails"][-1]["url"],
+            "videoId": item["videoId"],
+            "url": f"https://www.youtube.com/watch?v={item['videoId']}",
         }
-        for item in results
-    ]
+        songs.append(song)
 
     return jsonify(songs)
 
-
-@app.route("/getAudio", methods=["GET"])
+# 🎵 Get audio stream
+@app.route("/getAudio")
 def get_audio():
     url = request.args.get("url")
     if not url:
-        return jsonify({"error": "Missing URL"}), 400
+        return jsonify({"error": "Missing 'url' parameter"}), 400
 
     ydl_opts = {
         "format": "bestaudio/best",
         "quiet": True,
+        "no_warnings": True,
         "skip_download": True,
         "forceurl": True,
-        "extract_flat": True,
         "noplaylist": True,
-        "cookiefile": "cookies.txt",
+        "extract_flat": False,
     }
 
     with YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        audio_url = info.get("url")
+        try:
+            info_dict = ydl.extract_info(url, download=False)
+            return jsonify({"audioUrl": info_dict["url"]})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
-    return jsonify({"audioUrl": audio_url})
-
-
-def get_hd_thumbnail(thumbnails):
-    if not thumbnails:
-        return ""
-    url = thumbnails[-1].get("url", "")
-    if "=w" in url or "=s" in url:
-        url = url.split("=")[0]  # strip size
-    return url
-
-
-@app.route("/randomSongs", methods=["GET"])
-def random_songs():
-    results = ytmusic.search("new bollywood song", filter="songs")
-    random.shuffle(results)
-    top_results = results[:10]
-
-    songs = [
-        {
-            "title": item["title"],
-            "artist": ", ".join([a["name"] for a in item["artists"]]),
-            "thumbnail": get_hd_thumbnail(item.get("thumbnails", [])),
-            "url": f"https://music.youtube.com/watch?v={item['videoId']}",
-            "id": item.get("videoId", ""),
-        }
-        for item in top_results
-    ]
-
-    return jsonify(songs)
-
-
-@app.route("/newReleases", methods=["GET"])
-def new_releases():
-    results = ytmusic.search("bollywood hit songs", filter="songs")[:10]
-    songs = [
-        {
-            "title": item["title"],
-            "artist": ", ".join([a["name"] for a in item["artists"]]),
-            "thumbnail": get_hd_thumbnail(item.get("thumbnails", [])),
-            "url": f"https://music.youtube.com/watch?v={item['videoId']}",
-            "id": item.get("videoId", ""),
-        }
-        for item in results
-    ]
-    return jsonify(songs)
-
-
-@app.route("/globalTrending", methods=["GET"])
-def global_trending():
-    results = ytmusic.search("trending punjabi songs", filter="songs")[:10]
-    songs = [
-        {
-            "title": item["title"],
-            "artist": ", ".join([a["name"] for a in item["artists"]]),
-            "thumbnail": get_hd_thumbnail(item.get("thumbnails", [])),
-            "url": f"https://music.youtube.com/watch?v={item['videoId']}",
-            "id": item.get("videoId", ""),
-        }
-        for item in results
-    ]
-    return jsonify(songs)
-
-
-@app.route("/searchAlbums", methods=["GET"])
-def search_albums():
-    query = request.args.get("query")
-    if not query:
-        return jsonify([])
-
-    results = ytmusic.search(query, filter="albums")[:5]
-    albums = [
-        {
-            "title": item["title"],
-            "artist": ", ".join([a["name"] for a in item["artists"]]),
-            "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-            "browseId": item["browseId"],
-            "resultType": "album",
-        }
-        for item in results
-    ]
-    return jsonify(albums)
-
-
-@app.route("/getAlbumSongs", methods=["GET"])
-def get_album_songs():
-    browse_id = request.args.get("browseId")
-
-    if not browse_id:
-        return jsonify({"error": "Missing browseId"}), 400
-
-    album = ytmusic.get_album(browse_id)
-
-    if album is None:
-        return jsonify({"error": "Album not found for the given browseId"}), 404
-
-    songs = []
-
-    for track in album.get("tracks", []):
-        thumbs = track.get("thumbnails") or [{}]
-        songs.append(
-            {
-                "title": track.get("title", "Unknown"),
-                "artist": ", ".join(
-                    [a.get("name", "") for a in track.get("artists", [])]
-                ),
-                "thumbnail": thumbs[-1].get("url", ""),
-                "url": (
-                    f"https://music.youtube.com/watch?v={track['videoId']}"
-                    if track.get("videoId")
-                    else None
-                ),
-                "duration": track.get("duration", "0:00"),
-                "views": track.get("views", "N/A"),
-                "artistId": album.get("artists", [{}])[0].get("id", "Unknown Artist"),
-                "id": track.get("videoId", ""),
-            }
-        )
-
-    # Defensive fallback for thumbnails and artists
-    artists = album.get("artists") or [{}]
-    thumbnails = album.get("thumbnails") or [{}]
-
-    # Final response
-    return jsonify(
-        {
-            "title": album.get("title", "Unknown Album"),
-            "artist": artists[0].get("name", "Unknown Artist"),
-            "thumbnail": thumbnails[-1].get("url", ""),
-            "songs": songs,
-            "type": album.get("type", "Unknown"),
-            "year": album.get("year", "Unknown"),
-            "duration": album.get("duration", "0:00"),
-            "trackCount": album.get("trackCount", len(songs)),
-            "id": album.get("videoId", ""),
-            # "description": album.get("description", ""),
-            # "isExplicit": album.get("isExplicit", False),
-        }
-    )
-
-
-@app.route("/getSimilarSongs", methods=["GET"])
+# 🎧 Get similar songs
+@app.route("/getSimilarSongs")
 def get_similar_songs():
     song_id = request.args.get("songId")
     if not song_id:
-        return jsonify({"error": "songId is required"}), 400
+        return jsonify({"error": "Missing 'songId' parameter"}), 400
 
     try:
         song = ytmusic.get_song(song_id)
+        title = song["videoDetails"]["title"]
         artist = song["videoDetails"]["author"]
+        query = f"{title} {artist}"
 
-        similar_raw = ytmusic.search(artist, filter="songs")[:25]
+        results = ytmusic.search(query, filter="songs")
+        formatted = []
 
-        similar_songs = []
-        for item in similar_raw:
-            similar_songs.append(
-                {
-                    "title": item.get("title", "Unknown Title"),
-                    "artist": ", ".join(
-                        [a.get("name", "") for a in item.get("artists", [])]
-                    ),
-                    "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-                    "url": f"https://music.youtube.com/watch?v={item.get('videoId', '')}",
-                    "duration": item.get("duration", "0:00"),
-                    "views": item.get("views", "0"),
-                    "id": item.get("videoId", ""),
-                }
-            )
+        for item in results:
+            if item.get("videoId") == song_id:
+                continue
 
-        return jsonify(similar_songs)
+            formatted.append({
+                "title": item["title"],
+                "artist": ", ".join([a["name"] for a in item["artists"]]),
+                "thumbnail": item["thumbnails"][-1]["url"],
+                "videoId": item["videoId"],
+                "url": f"https://www.youtube.com/watch?v={item['videoId']}",
+            })
 
+        return jsonify(formatted)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# 🆕 New releases (mock example)
+@app.route("/newReleases")
+def new_releases():
+    search_results = ytmusic.get_chart("IN")["new_releases"]
+    songs = []
 
-@app.route("/getSongFromSearch", methods=["GET"])
-def get_song_from_search():
-    song_id = request.args.get("id")
-    if not song_id:
-        return jsonify({"error": "Missing song ID"}), 400
+    for item in search_results:
+        songs.append({
+            "title": item["title"],
+            "artist": ", ".join([a["name"] for a in item["artists"]]),
+            "thumbnail": item["thumbnails"][-1]["url"],
+            "videoId": item.get("videoId", ""),
+            "url": f"https://www.youtube.com/watch?v={item['videoId']}" if item.get("videoId") else "",
+        })
 
-    try:
-        song = ytmusic.get_song(song_id)
-        details = song.get("videoDetails", {})
+    return jsonify(songs)
 
-        return jsonify(
-            {
-                "title": details.get("title", "Unknown Title"),
-                "videoId": details.get("videoId", song_id),
-                "views": details.get("viewCount", "0"),
-                "duration": details.get("lengthSeconds", "0"),
-                "duration_readable": song.get("microformat", {}).get(
-                    "lengthSeconds", "0:00"
-                ),
-                "thumbnail": details.get("thumbnail", {})
-                .get("thumbnails", [{}])[-1]
-                .get("url", ""),
-                "album": {"name": song.get("album", {}).get("name", "Unknown Album")},
-                "artists": [{"name": details.get("author", "Unknown Artist")}],
-                "category": details.get("category", ""),
-            }
-        )
+# 🔀 Random songs
+@app.route("/randomSongs")
+def random_songs():
+    query = random.choice(["pop", "rock", "chill", "romantic", "lofi"])
+    results = ytmusic.search(query, filter="songs")
+    songs = []
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    for item in results[:15]:
+        songs.append({
+            "title": item["title"],
+            "artist": ", ".join([a["name"] for a in item["artists"]]),
+            "thumbnail": item["thumbnails"][-1]["url"],
+            "videoId": item["videoId"],
+            "url": f"https://www.youtube.com/watch?v={item['videoId']}",
+        })
 
+    return jsonify(songs)
 
-# File: app.py (Flask backend - Add this route)
+# 🌎 Trending (India)
+@app.route("/trending")
+def trending():
+    charts = ytmusic.get_chart("IN")
+    trending_songs = charts["songs"]
+    songs = []
 
+    for item in trending_songs:
+        songs.append({
+            "title": item["title"],
+            "artist": ", ".join([a["name"] for a in item["artists"]]),
+            "thumbnail": item["thumbnails"][-1]["url"],
+            "videoId": item.get("videoId", ""),
+            "url": f"https://www.youtube.com/watch?v={item['videoId']}" if item.get("videoId") else "",
+        })
 
-@app.route("/artist", methods=["GET"])
-def get_artist():
-    artist_id = request.args.get("id")
-    if not artist_id:
-        return jsonify({"error": "Missing artist ID"}), 400
+    return jsonify(songs)
 
-    try:
-        data = ytmusic.get_artist(artist_id)
-
-        # Extract top songs (aka "songs")
-        top_songs = []
-        for song in data.get("songs", {}).get("results", [])[:20]:
-            top_songs.append(
-                {
-                    "title": song.get("title", "Unknown Title"),
-                    "id": song.get("videoId", ""),
-                    "artist": ", ".join(
-                        [a.get("name", "") for a in song.get("artists", [])]
-                    ),
-                    "thumbnail": song.get("thumbnails", [{}])[-1].get("url", ""),
-                    "album": song.get("album", {}).get("name", "Unknown Album"),
-                    "url": f"https://music.youtube.com/watch?v={song.get('videoId')}",
-                }
-            )
-
-        # Extract albums
-        albums = []
-        for album in data.get("albums", {}).get("results", [])[:20]:
-            albums.append(
-                {
-                    "title": album.get("title", "Unknown Album"),
-                    "browseId": album.get("browseId", ""),
-                    "year": album.get("year", ""),
-                    "thumbnail": album.get("thumbnails", [{}])[-1].get("url", ""),
-                }
-            )
-
-        # Extract albums
-        singles = []
-        for single in data.get("singles", {}).get("results", [])[:20]:
-            singles.append(
-                {
-                    "title": single.get("title", "Unknown single"),
-                    "browseId": single.get("browseId", ""),
-                    "year": single.get("year", ""),
-                    "thumbnail": single.get("thumbnails", [{}])[-1].get("url", ""),
-                }
-            )
-
-        # Artist info
-        artist_info = {
-            "name": data.get("name", "Unknown Artist"),
-            "description": data.get("description", ""),
-            "thumbnails": data.get("thumbnails", []),
-            "songs": top_songs,
-            "albums": albums,
-            "singles": singles,
-            "views": data.get("views", ""),
-            "followers": data.get("subscribers", ""),
-        }
-
-        return jsonify(artist_info)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/searchArtists", methods=["GET"])
-def search_artists():
-    query = request.args.get("query")
-    if not query:
-        return jsonify([])
-
-    results = ytmusic.search(query, filter="artists")[:5]
-    artists = [
-        {
-            "name": item.get("artist", item.get("title", "Unknown Artist")),
-            "id": item.get("browseId", ""),
-            "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-            "resultType": "artist",
-        }
-        for item in results
-    ]
-    return jsonify(artists)
-
-
+# 🔚 Run the Flask app
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000)),
-        debug=True,
-    )
+    port = int(os.environ.get("PORT", 5000))  # for Render
+    app.run(debug=True, host="0.0.0.0", port=port)
