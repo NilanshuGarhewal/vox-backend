@@ -6,7 +6,7 @@ import os
 import random
 
 app = Flask(__name__)
-CORS(app)  # Globally apply CORS to all routes
+CORS(app, origins=["http://localhost:5173"])
 
 ytmusic = YTMusic()
 
