@@ -6,21 +6,12 @@ import os
 import random
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins":"*"}})
+CORS(app)
 
 ytmusic = YTMusic()
 
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    return response
-
-
 @app.route("/searchSongs", methods=["GET"])
-@cross_origin()
 def search_songs():
     query = request.args.get("query")
     if not query:
@@ -45,7 +36,6 @@ def search_songs():
 
 
 @app.route("/getAudio", methods=["GET"])
-@cross_origin()
 def get_audio():
     url = request.args.get("url")
     if not url:
@@ -78,7 +68,6 @@ def get_hd_thumbnail(thumbnails):
 
 
 @app.route("/randomSongs", methods=["GET"])
-@cross_origin()
 def random_songs():
     results = ytmusic.search("new bollywood song", filter="songs")
     random.shuffle(results)
@@ -99,7 +88,6 @@ def random_songs():
 
 
 @app.route("/newReleases", methods=["GET"])
-@cross_origin()
 def new_releases():
     results = ytmusic.search("bollywood hit songs", filter="songs")[:10]
     songs = [
@@ -116,7 +104,6 @@ def new_releases():
 
 
 @app.route("/globalTrending", methods=["GET"])
-@cross_origin()
 def global_trending():
     results = ytmusic.search("trending punjabi songs", filter="songs")[:10]
     songs = [
@@ -133,7 +120,6 @@ def global_trending():
 
 
 @app.route("/searchAlbums", methods=["GET"])
-@cross_origin()
 def search_albums():
     query = request.args.get("query")
     if not query:
@@ -154,7 +140,6 @@ def search_albums():
 
 
 @app.route("/getAlbumSongs", methods=["GET"])
-@cross_origin()
 def get_album_songs():
     browse_id = request.args.get("browseId")
 
@@ -281,7 +266,6 @@ def get_song_from_search():
 
 
 @app.route("/artist", methods=["GET"])
-@cross_origin()
 def get_artist():
     artist_id = request.args.get("id")
     if not artist_id:
@@ -349,7 +333,6 @@ def get_artist():
 
 
 @app.route("/searchArtists", methods=["GET"])
-@cross_origin()
 def search_artists():
     query = request.args.get("query")
     if not query:
