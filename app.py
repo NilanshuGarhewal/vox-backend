@@ -6,7 +6,7 @@ import yt_dlp
 app = Flask(__name__)
 CORS(app)
 
-yt = YTMusic("headers_auth.json")  # or use setup() if using browser cookies
+yt = YTMusic()  # or use setup() if using browser cookies
 
 
 # ---------------- GET AUDIO ROUTE ----------------
