@@ -8,6 +8,7 @@ CORS(app)
 
 yt = YTMusic("headers_auth.json")  # or use setup() if using browser cookies
 
+
 # ---------------- GET AUDIO ROUTE ----------------
 @app.route("/getAudio")
 def get_audio():
@@ -30,6 +31,7 @@ def get_audio():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 # ---------------- SEARCH ROUTE ----------------
 @app.route("/search")
 def search():
@@ -38,15 +40,18 @@ def search():
 
     songs = []
     for item in results:
-        songs.append({
-            "id": item.get("videoId"),
-            "title": item.get("title"),
-            "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
-            "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-            "url": f"https://www.youtube.com/watch?v={item.get('videoId')}"
-        })
+        songs.append(
+            {
+                "id": item.get("videoId"),
+                "title": item.get("title"),
+                "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
+                "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
+                "url": f"https://www.youtube.com/watch?v={item.get('videoId')}",
+            }
+        )
 
     return jsonify(songs)
+
 
 # ---------------- MUSIC SECTION ROUTE ----------------
 @app.route("/musicSection")
@@ -58,67 +63,80 @@ def music_section():
     for playlist in playlists:
         playlist_data = yt.get_playlist(playlist["playlistId"])
         for item in playlist_data.get("tracks", []):
-            songs.append({
-                "id": item.get("videoId"),
-                "title": item.get("title"),
-                "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
-                "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-                "url": f"https://www.youtube.com/watch?v={item.get('videoId')}"
-            })
+            songs.append(
+                {
+                    "id": item.get("videoId"),
+                    "title": item.get("title"),
+                    "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
+                    "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
+                    "url": f"https://www.youtube.com/watch?v={item.get('videoId')}",
+                }
+            )
 
     return jsonify(songs[:20])
+
 
 # ---------------- NEW RELEASED SONGS ----------------
 @app.route("/newReleasedSongs")
 def new_released():
-    albums = yt.get_chart("new_releases", "IN").get("albums", [])
+    albums = yt.get_charts("new_releases", "IN").get("albums", [])
     songs = []
 
     for album in albums:
-        songs.append({
-            "id": album.get("browseId"),
-            "title": album.get("title"),
-            "artist": album.get("artists", [{}])[0].get("name", ""),
-            "thumbnail": album.get("thumbnails", [{}])[-1].get("url", "")
-        })
+        songs.append(
+            {
+                "id": album.get("browseId"),
+                "title": album.get("title"),
+                "artist": album.get("artists", [{}])[0].get("name", ""),
+                "thumbnail": album.get("thumbnails", [{}])[-1].get("url", ""),
+            }
+        )
 
     return jsonify(songs[:20])
+
 
 # ---------------- TRENDING SONGS ----------------
 @app.route("/trendingSongs")
 def trending_songs():
-    trending = yt.get_chart(country="IN").get("songs", [])
+    trending = yt.get_charts(country="IN").get("songs", [])
     songs = []
 
     for item in trending:
-        songs.append({
-            "id": item.get("videoId"),
-            "title": item.get("title"),
-            "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
-            "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-            "url": f"https://www.youtube.com/watch?v={item.get('videoId')}"
-        })
+        songs.append(
+            {
+                "id": item.get("videoId"),
+                "title": item.get("title"),
+                "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
+                "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
+                "url": f"https://www.youtube.com/watch?v={item.get('videoId')}",
+            }
+        )
 
     return jsonify(songs[:20])
+
 
 # ---------------- RANDOM SONGS (Shuffle-like) ----------------
 @app.route("/randomSongs")
 def random_songs():
     results = yt.search("bollywood songs", filter="songs")
     import random
+
     random.shuffle(results)
 
     songs = []
     for item in results[:20]:
-        songs.append({
-            "id": item.get("videoId"),
-            "title": item.get("title"),
-            "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
-            "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
-            "url": f"https://www.youtube.com/watch?v={item.get('videoId')}"
-        })
+        songs.append(
+            {
+                "id": item.get("videoId"),
+                "title": item.get("title"),
+                "artist": ", ".join([a["name"] for a in item.get("artists", [])]),
+                "thumbnail": item.get("thumbnails", [{}])[-1].get("url", ""),
+                "url": f"https://www.youtube.com/watch?v={item.get('videoId')}",
+            }
+        )
 
     return jsonify(songs)
+
 
 # ---------------- RUN FLASK ----------------
 if __name__ == "__main__":
